@@ -17,6 +17,13 @@
             flex-direction: column;
         }
 
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2em;
+        }
+
         #gameContainer {
             background-color: #a0c0a0; /* Green for grass/background */
             border-radius: 15px;
@@ -41,13 +48,6 @@
             border-radius: 10px;
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 2em;
-        }
-
         #messageBox {
             position: absolute;
             top: 50%;
@@ -62,13 +62,62 @@
             z-index: 1000;
             display: none; /* Hidden by default */
         }
+
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px; /* Space between buttons */
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            background-color: #004085;
+            transform: translateY(0);
+        }
+
+        #wordProgress {
+            margin-top: 10px;
+            font-size: 1.5em;
+            color: #444;
+            text-align: center;
+            width: 100%;
+        }
+
+        #targetWordDisplay, #collectedLettersDisplay {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
     <h1>Jogo do Carrinho Alfabeto</h1>
+    <div id="wordProgress">
+        <div id="targetWordDisplay">Palavra Alvo: ???</div>
+        <div id="collectedLettersDisplay">Letras Coletadas: </div>
+    </div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <div id="messageBox"></div>
+    </div>
+    <div id="controls">
+        <button id="pauseButton">Pausar</button>
+        <button id="newWordButton">Nova Palavra</button>
     </div>
 
     <script>
@@ -76,14 +125,25 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const messageBox = document.getElementById('messageBox');
+        const pauseButton = document.getElementById('pauseButton');
+        const newWordButton = document.getElementById('newWordButton');
+        const targetWordDisplay = document.getElementById('targetWordDisplay');
+        const collectedLettersDisplay = document.getElementById('collectedLettersDisplay');
 
         // Game state variables
         let playerCar;
         const otherCars = [];
         const houses = [];
-        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; // All letters for random cars
         const carColors = ['#FF6347', '#4682B4', '#3CB371', '#FFD700', '#DA70D6', '#FFA500', '#ADFF2F']; // Various car colors
         let animationFrameId; // To hold the ID of requestAnimationFrame
+        let isPaused = false; // State variable for pause functionality
+
+        // Word game variables
+        const targetWords = ['CASA', 'PATO', 'BOLA', 'GATO', 'SOL', 'ARROZ', 'FLOR'];
+        let currentWordIndex = 0;
+        let targetWord = '';
+        let collectedLetters = []; // To store letters collected in order
 
         // Adjust canvas size to fit container and maintain aspect ratio
         function resizeCanvas() {
@@ -91,18 +151,12 @@
             const containerWidth = container.clientWidth;
             const containerHeight = container.clientHeight;
 
-            // Use the smaller dimension to determine the square canvas size for now
-            // Or adjust based on your desired game aspect ratio if not square
-            const size = Math.min(containerWidth, containerHeight);
-
             // Set canvas dimensions (actual pixels)
             canvas.width = containerWidth - 40; // Subtract margins
             canvas.height = containerHeight - 40; // Subtract margins
 
-            // Update game element positions if necessary on resize (e.g., scale everything)
-            // For simplicity, we'll just redraw everything, assuming proportions adjust.
+            // Update player car position if necessary on resize
             if (playerCar) {
-                // Keep player car in the middle of the road
                 playerCar.y = canvas.height - playerCar.height - 20; // Near bottom
             }
         }
@@ -237,8 +291,45 @@
                 houses.push(new House(canvas.width - 80, i * 150 + 50, houseColors[Math.floor(Math.random() * houseColors.length)]));
             }
 
-            // Start the game loop
-            gameLoop();
+            startNewWord(); // Start with a new word
+            gameLoop(); // Start the game loop
+        }
+
+        /**
+         * Starts a new word for the player to form.
+         */
+        function startNewWord() {
+            // Pick the next target word, loop if necessary
+            targetWord = targetWords[currentWordIndex % targetWords.length];
+            currentWordIndex++;
+
+            // Initialize collected letters with underscores
+            collectedLetters = Array(targetWord.length).fill('_');
+
+            // Clear existing other cars to prevent confusion with previous words
+            otherCars.length = 0;
+
+            displayWordProgress();
+            showMessage(`Forme a palavra: ${targetWord}`);
+        }
+
+        /**
+         * Updates the display of the target word and collected letters.
+         */
+        function displayWordProgress() {
+            targetWordDisplay.textContent = `Palavra Alvo: ${targetWord}`;
+            collectedLettersDisplay.textContent = `Letras Coletadas: ${collectedLetters.join(' ')}`;
+        }
+
+        /**
+         * Checks if the player has successfully formed the target word.
+         */
+        function checkWinCondition() {
+            if (collectedLetters.join('') === targetWord) {
+                showMessage(`Parabéns! Você formou a palavra ${targetWord}!`, 3000);
+                // Optionally, automatically start a new word after a delay or make user click "New Word"
+                // setTimeout(startNewWord, 3000);
+            }
         }
 
         /**
@@ -271,12 +362,22 @@
             });
 
             // Add new cars randomly
+            // Prioritize letters from the target word if not all collected
+            let letterToGenerate;
+            const nextExpectedLetter = targetWord[collectedLetters.indexOf('_')]; // Find the next letter we need
+
+            if (nextExpectedLetter && Math.random() < 0.1) { // Higher chance for needed letter
+                letterToGenerate = nextExpectedLetter;
+            } else {
+                letterToGenerate = alphabet[Math.floor(Math.random() * alphabet.length)];
+            }
+
+
             if (Math.random() < 0.02 && otherCars.length < 5) { // Adjust probability and max cars
-                const randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
                 const randomColor = carColors[Math.floor(Math.random() * carColors.length)];
                 const randomLane = Math.floor(Math.random() * 3);
                 const laneCenter = (randomLane + 0.5) * (canvas.width / 3);
-                otherCars.push(new Car(laneCenter - 20, -70, randomLetter, randomColor, Math.random() * 2 + 1)); // Random speed
+                otherCars.push(new Car(laneCenter - 20, -70, letterToGenerate, randomColor, Math.random() * 2 + 1)); // Random speed
             }
 
             // Simple collision detection with player car (horizontal boundaries)
@@ -284,7 +385,8 @@
             if (playerCar.x + playerCar.width > canvas.width) playerCar.x = canvas.width - playerCar.width;
 
             // Check for collisions between player car and other cars
-            otherCars.forEach(otherCar => {
+            for (let i = otherCars.length - 1; i >= 0; i--) {
+                const otherCar = otherCars[i];
                 if (
                     playerCar.x < otherCar.x + otherCar.width &&
                     playerCar.x + playerCar.width > otherCar.x &&
@@ -292,11 +394,19 @@
                     playerCar.y + playerCar.height > otherCar.y
                 ) {
                     // Collision detected!
-                    // For a kid's game, let's just make the other car disappear and show a message.
-                    showMessage(`Você encontrou a letra ${otherCar.letter}!`);
-                    otherCars.splice(otherCars.indexOf(otherCar), 1); // Remove the collided car
+                    // Check if the collected letter is the next one needed for the target word
+                    const nextEmptyIndex = collectedLetters.indexOf('_');
+                    if (nextEmptyIndex !== -1 && otherCar.letter === targetWord[nextEmptyIndex]) {
+                        collectedLetters[nextEmptyIndex] = otherCar.letter;
+                        showMessage(`Você coletou a letra ${otherCar.letter}!`, 1500);
+                        displayWordProgress();
+                        checkWinCondition();
+                    } else {
+                        showMessage(`Você encontrou a letra ${otherCar.letter}! Tente encontrar a próxima letra da palavra!`, 1500);
+                    }
+                    otherCars.splice(i, 1); // Remove the collided car
                 }
-            });
+            }
         }
 
         /**
@@ -323,22 +433,43 @@
          * The main game loop. Updates game state and redraws elements.
          */
         function gameLoop() {
-            update(); // Update game state
-            draw();   // Redraw all elements
-            animationFrameId = requestAnimationFrame(gameLoop); // Request next frame
+            if (!isPaused) { // Only update and draw if not paused
+                update(); // Update game state
+                draw();   // Redraw all elements
+            }
+            animationFrameId = requestAnimationFrame(gameLoop); // Request next frame regardless of pause state
         }
+
+        // Toggle pause state when button is clicked
+        pauseButton.addEventListener('click', () => {
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseButton.textContent = 'Continuar';
+                showMessage('Jogo Pausado!');
+            } else {
+                pauseButton.textContent = 'Pausar';
+                showMessage('Jogo Continuado!');
+            }
+        });
+
+        // Start new word when button is clicked
+        newWordButton.addEventListener('click', () => {
+            startNewWord();
+        });
 
         // Keyboard input handling
         document.addEventListener('keydown', (e) => {
-            const moveSpeed = 10; // How many pixels the car moves per key press
-            if (e.key === 'ArrowLeft') {
-                playerCar.x -= moveSpeed;
-            } else if (e.key === 'ArrowRight') {
-                playerCar.x += moveSpeed;
-            } else if (e.key === 'ArrowUp') {
-                playerCar.y -= moveSpeed;
-            } else if (e.key === 'ArrowDown') {
-                playerCar.y += moveSpeed;
+            if (!isPaused) { // Only allow movement if not paused
+                const moveSpeed = 10; // How many pixels the car moves per key press
+                if (e.key === 'ArrowLeft') {
+                    playerCar.x -= moveSpeed;
+                } else if (e.key === 'ArrowRight') {
+                    playerCar.x += moveSpeed;
+                } else if (e.key === 'ArrowUp') {
+                    playerCar.y -= moveSpeed;
+                } else if (e.key === 'ArrowDown') {
+                    playerCar.y += moveSpeed;
+                }
             }
         });
     </script>

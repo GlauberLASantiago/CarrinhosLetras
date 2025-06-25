@@ -1,0 +1,70 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #87CEEB; /* Céu azul */
+}
+
+#game-container {
+    position: relative;
+    width: 800px; /* Largura do cenário */
+    height: 600px; /* Altura do cenário */
+    border: 2px solid #333;
+    background-color: #5cb35c; /* Gramado */
+    overflow: hidden; /* Para esconder o que sair da tela */
+}
+
+#road {
+    position: absolute;
+    width: 100%;
+    height: 150px; /* Altura da rua */
+    background-color: #555;
+    bottom: 0; /* Rua na parte de baixo */
+    border-top: 5px dashed yellow; /* Faixa da rua */
+}
+
+.house {
+    position: absolute;
+    width: 80px;
+    height: 100px;
+    background-color: #D2B48C; /* Cor da casa */
+    border: 2px solid #8B4513;
+    border-radius: 5px;
+    bottom: 150px; /* Acima da rua */
+}
+
+.house-1 {
+    left: 50px;
+}
+
+.house-2 {
+    right: 70px;
+}
+
+/* Adicione mais casas com posições diferentes */
+
+.car {
+    position: absolute;
+    width: 70px;
+    height: 70px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    bottom: 50px; /* Posiciona o carro na rua */
+    left: calc(50% - 35px); /* Centraliza o carro inicialmente */
+    transition: transform 0.1s linear; /* Animação suave para o movimento */
+}
+
+/* Estilos para os carros-letras */
+.letter-A {
+    background-image: url('assets/carro_a.png'); /* Imagem da letra A como carro */
+}
+
+/* Adicione estilos para outras letras */
+.letter-B {
+    background-image: url('assets/carro_b.png');
+}
+/* ... */

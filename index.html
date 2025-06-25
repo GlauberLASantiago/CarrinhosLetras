@@ -1,20 +1,346 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Corrida do Alfabeto</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Jogo do Carrinho Alfabeto</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            flex-direction: column;
+        }
+
+        #gameContainer {
+            background-color: #a0c0a0; /* Green for grass/background */
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            position: relative;
+            width: 90vw; /* Responsive width */
+            max-width: 800px; /* Max width for larger screens */
+            aspect-ratio: 16 / 9; /* Maintain aspect ratio */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        canvas {
+            background-color: #505050; /* Road color */
+            display: block;
+            width: calc(100% - 40px); /* Adjust for padding/margin within container */
+            height: calc(100% - 40px); /* Adjust for padding/margin within container */
+            margin: 20px;
+            border-radius: 10px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        #messageBox {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.5em;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+    </style>
 </head>
 <body>
-    <div id="game-container">
-        <div id="road"></div>
-        <div id="city">
-            <div class="house house-1"></div>
-            <div class="house house-2"></div>
-            </div>
-        <div id="player-car" class="car letter-A"></div> </div>
+    <h1>Jogo do Carrinho Alfabeto</h1>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="messageBox"></div>
+    </div>
 
-    <script src="script.js"></script>
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageBox = document.getElementById('messageBox');
+
+        // Game state variables
+        let playerCar;
+        const otherCars = [];
+        const houses = [];
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const carColors = ['#FF6347', '#4682B4', '#3CB371', '#FFD700', '#DA70D6', '#FFA500', '#ADFF2F']; // Various car colors
+        let animationFrameId; // To hold the ID of requestAnimationFrame
+
+        // Adjust canvas size to fit container and maintain aspect ratio
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+
+            // Use the smaller dimension to determine the square canvas size for now
+            // Or adjust based on your desired game aspect ratio if not square
+            const size = Math.min(containerWidth, containerHeight);
+
+            // Set canvas dimensions (actual pixels)
+            canvas.width = containerWidth - 40; // Subtract margins
+            canvas.height = containerHeight - 40; // Subtract margins
+
+            // Update game element positions if necessary on resize (e.g., scale everything)
+            // For simplicity, we'll just redraw everything, assuming proportions adjust.
+            if (playerCar) {
+                // Keep player car in the middle of the road
+                playerCar.y = canvas.height - playerCar.height - 20; // Near bottom
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = function() {
+            resizeCanvas(); // Initial resize
+            initGame();
+        };
+
+        /**
+         * Shows a message in a central box on the screen.
+         * @param {string} message - The message to display.
+         * @param {number} duration - How long the message should be displayed in milliseconds.
+         */
+        function showMessage(message, duration = 2000) {
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, duration);
+        }
+
+        /**
+         * Represents a car in the game.
+         * @param {number} x - The x-coordinate of the car.
+         * @param {number} y - The y-coordinate of the car.
+         * @param {string} letter - The letter displayed on the car.
+         * @param {string} color - The color of the car.
+         * @param {number} speed - The speed of the car.
+         */
+        class Car {
+            constructor(x, y, letter, color, speed) {
+                this.width = 40;
+                this.height = 70;
+                this.x = x;
+                this.y = y;
+                this.letter = letter;
+                this.color = color;
+                this.speed = speed;
+                this.lane = Math.floor(Math.random() * 3); // 0, 1, or 2 for lanes
+            }
+
+            /**
+             * Draws the car on the canvas.
+             */
+            draw() {
+                // Draw car body
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+
+                // Draw wheels (small black rectangles)
+                ctx.fillStyle = '#333'; // Dark grey for wheels
+                ctx.fillRect(this.x - 5, this.y + 10, 5, 15); // Left front wheel
+                ctx.fillRect(this.x - 5, this.y + this.height - 25, 5, 15); // Left rear wheel
+                ctx.fillRect(this.x + this.width, this.y + 10, 5, 15); // Right front wheel
+                ctx.fillRect(this.x + this.width, this.y + this.height - 25, 5, 15); // Right rear wheel
+
+                // Draw car roof/top
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x + 5, this.y + 10, this.width - 10, this.height - 20);
+
+                // Draw the letter
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 30px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.letter, this.x + this.width / 2, this.y + this.height / 2);
+            }
+
+            /**
+             * Updates the car's position.
+             */
+            update() {
+                this.y += this.speed;
+            }
+        }
+
+        /**
+         * Represents a house in the game.
+         * @param {number} x - The x-coordinate of the house.
+         * @param {number} y - The y-coordinate of the house.
+         * @param {string} color - The color of the house.
+         */
+        class House {
+            constructor(x, y, color) {
+                this.width = 60;
+                this.height = 80;
+                this.x = x;
+                this.y = y;
+                this.color = color;
+            }
+
+            /**
+             * Draws the house on the canvas.
+             */
+            draw() {
+                // Draw main body of the house
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+
+                // Draw roof (triangle)
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + this.width / 2, this.y - this.height / 2); // Peak of the roof
+                ctx.lineTo(this.x + this.width, this.y);
+                ctx.closePath();
+                ctx.fillStyle = '#8B4513'; // Brown for roof
+                ctx.fill();
+
+                // Draw door
+                ctx.fillStyle = '#654321'; // Darker brown for door
+                ctx.fillRect(this.x + this.width / 2 - 10, this.y + this.height - 30, 20, 30);
+            }
+        }
+
+        /**
+         * Initializes the game by setting up player car, other cars, and houses.
+         */
+        function initGame() {
+            // Player car (always 'P' for Player)
+            playerCar = new Car(canvas.width / 2 - 20, canvas.height - 80, 'P', '#FF0000', 0); // Red player car
+
+            // Generate initial houses
+            const houseColors = ['#f4a261', '#e9c46a', '#2a9d8f', '#264653'];
+            // Left side houses
+            for (let i = 0; i < 5; i++) {
+                houses.push(new House(20, i * 150 + 50, houseColors[Math.floor(Math.random() * houseColors.length)]));
+            }
+            // Right side houses
+            for (let i = 0; i < 5; i++) {
+                houses.push(new House(canvas.width - 80, i * 150 + 50, houseColors[Math.floor(Math.random() * houseColors.length)]));
+            }
+
+            // Start the game loop
+            gameLoop();
+        }
+
+        /**
+         * Draws the road on the canvas.
+         */
+        function drawRoad() {
+            ctx.fillStyle = '#505050'; // Dark grey for road
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw road lines
+            ctx.fillStyle = 'white'; // White lines
+            const laneWidth = canvas.width / 3; // Divide into 3 lanes
+            for (let i = 0; i < canvas.height; i += 40) { // Dashed lines
+                ctx.fillRect(laneWidth - 5, i, 10, 20); // First lane marker
+                ctx.fillRect(2 * laneWidth - 5, i, 10, 20); // Second lane marker
+            }
+        }
+
+        /**
+         * Updates the game state (car positions, etc.).
+         */
+        function update() {
+            // Update other cars' positions
+            otherCars.forEach(car => {
+                car.update();
+                // If car goes off screen, remove it
+                if (car.y > canvas.height) {
+                    otherCars.splice(otherCars.indexOf(car), 1);
+                }
+            });
+
+            // Add new cars randomly
+            if (Math.random() < 0.02 && otherCars.length < 5) { // Adjust probability and max cars
+                const randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+                const randomColor = carColors[Math.floor(Math.random() * carColors.length)];
+                const randomLane = Math.floor(Math.random() * 3);
+                const laneCenter = (randomLane + 0.5) * (canvas.width / 3);
+                otherCars.push(new Car(laneCenter - 20, -70, randomLetter, randomColor, Math.random() * 2 + 1)); // Random speed
+            }
+
+            // Simple collision detection with player car (horizontal boundaries)
+            if (playerCar.x < 0) playerCar.x = 0;
+            if (playerCar.x + playerCar.width > canvas.width) playerCar.x = canvas.width - playerCar.width;
+
+            // Check for collisions between player car and other cars
+            otherCars.forEach(otherCar => {
+                if (
+                    playerCar.x < otherCar.x + otherCar.width &&
+                    playerCar.x + playerCar.width > otherCar.x &&
+                    playerCar.y < otherCar.y + otherCar.height &&
+                    playerCar.y + playerCar.height > otherCar.y
+                ) {
+                    // Collision detected!
+                    // For a kid's game, let's just make the other car disappear and show a message.
+                    showMessage(`Você encontrou a letra ${otherCar.letter}!`);
+                    otherCars.splice(otherCars.indexOf(otherCar), 1); // Remove the collided car
+                }
+            });
+        }
+
+        /**
+         * Renders all game elements on the canvas.
+         */
+        function draw() {
+            // Clear the canvas for a new frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw road first
+            drawRoad();
+
+            // Draw houses
+            houses.forEach(house => house.draw());
+
+            // Draw other cars
+            otherCars.forEach(car => car.draw());
+
+            // Draw player car
+            playerCar.draw();
+        }
+
+        /**
+         * The main game loop. Updates game state and redraws elements.
+         */
+        function gameLoop() {
+            update(); // Update game state
+            draw();   // Redraw all elements
+            animationFrameId = requestAnimationFrame(gameLoop); // Request next frame
+        }
+
+        // Keyboard input handling
+        document.addEventListener('keydown', (e) => {
+            const moveSpeed = 10; // How many pixels the car moves per key press
+            if (e.key === 'ArrowLeft') {
+                playerCar.x -= moveSpeed;
+            } else if (e.key === 'ArrowRight') {
+                playerCar.x += moveSpeed;
+            } else if (e.key === 'ArrowUp') {
+                playerCar.y -= moveSpeed;
+            } else if (e.key === 'ArrowDown') {
+                playerCar.y += moveSpeed;
+            }
+        });
+    </script>
 </body>
 </html>

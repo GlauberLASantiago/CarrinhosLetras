@@ -1,477 +1,247 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jogo do Carrinho Alfabeto</title>
+    <title>Aferidor de Entonação</title>
+    <!-- Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js para geração de áudio e análise de frequência -->
+    <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            margin: 0;
-            overflow: hidden; /* Prevent scrollbars */
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             font-family: 'Inter', sans-serif;
-            flex-direction: column;
         }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            text-align: center;
-            font-size: 2em;
-        }
-
-        #gameContainer {
-            background-color: #a0c0a0; /* Green for grass/background */
-            border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-            position: relative;
-            width: 90vw; /* Responsive width */
-            max-width: 800px; /* Max width for larger screens */
-            aspect-ratio: 16 / 9; /* Maintain aspect ratio */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-
-        canvas {
-            background-color: #505050; /* Road color */
-            display: block;
-            width: calc(100% - 40px); /* Adjust for padding/margin within container */
-            height: calc(100% - 40px); /* Adjust for padding/margin within container */
-            margin: 20px;
-            border-radius: 10px;
-        }
-
-        #messageBox {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 1.5em;
-            z-index: 1000;
-            display: none; /* Hidden by default */
-        }
-
-        #controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 15px; /* Space between buttons */
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 1.2em;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        button:hover {
-            background-color: #0056b3;
-            transform: translateY(-2px);
-        }
-
-        button:active {
-            background-color: #004085;
-            transform: translateY(0);
-        }
-
-        #wordProgress {
-            margin-top: 10px;
-            font-size: 1.5em;
-            color: #444;
-            text-align: center;
-            width: 100%;
-        }
-
-        #targetWordDisplay, #collectedLettersDisplay {
-            font-weight: bold;
-            margin-bottom: 5px;
+        /* Classe para transição suave de cor */
+        .color-transition {
+            transition: background-color 0.5s ease;
         }
     </style>
 </head>
-<body>
-    <h1>Jogo do Carrinho Alfabeto</h1>
-    <div id="wordProgress">
-        <div id="targetWordDisplay">Palavra Alvo: ???</div>
-        <div id="collectedLettersDisplay">Letras Coletadas: </div>
-    </div>
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-        <div id="messageBox"></div>
-    </div>
-    <div id="controls">
-        <button id="pauseButton">Pausar</button>
-        <button id="newWordButton">Nova Palavra</button>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md mx-auto p-6 md:p-8 bg-gray-800 rounded-2xl shadow-2xl text-center">
+        <h1 class="text-3xl font-bold mb-2 text-cyan-400">Aferidor de Entonação</h1>
+        <p class="text-gray-400 mb-2">Meça a precisão da sua voz.</p>
+        
+        <p class="text-gray-500 text-sm mb-6 px-4">
+            Pode ser utilizado para o treino de entonação para voz ou instrumentos.
+            <strong>Dica:</strong> comece a cantar a nota ainda enquanto ouve o som para uma melhor entonação.
+        </p>
+
+        <!-- Área de Controle e Status -->
+        <div id="controlArea" class="space-y-4">
+            <button id="startButton" class="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-lg text-lg transition-all shadow-lg">
+                INICIAR
+            </button>
+            <button id="nextNoteButton" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-lg text-lg transition-all shadow-lg hidden">
+                Próxima Nota
+            </button>
+            <p id="status" class="text-gray-400 h-6"></p>
+        </div>
+
+        <!-- Área de Exibição Principal -->
+        <div id="displayArea" class="mt-6 p-6 bg-gray-900/50 rounded-xl color-transition">
+            <p id="instruction" class="text-xl h-7">Pressione INICIAR para começar</p>
+            <p id="targetNoteDisplay" class="text-6xl font-bold my-4 h-20">-</p>
+            <p id="feedback" class="text-2xl font-semibold h-10">&nbsp;</p>
+        </div>
+        
+        <!-- Área de Resultado do Usuário -->
+        <div id="userResultArea" class="mt-4 p-4 bg-gray-700/50 rounded-xl">
+             <p id="userResultLabel" class="text-sm text-gray-400">&nbsp;</p>
+             <p id="userResultDisplay" class="text-xl font-semibold h-8">-</p>
+        </div>
+
+        <p class="text-xs text-gray-600 mt-8">by Glauber Santiago - UFSCar</p>
+
     </div>
 
     <script>
-        // Get the canvas element and its 2D rendering context
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const messageBox = document.getElementById('messageBox');
-        const pauseButton = document.getElementById('pauseButton');
-        const newWordButton = document.getElementById('newWordButton');
-        const targetWordDisplay = document.getElementById('targetWordDisplay');
-        const collectedLettersDisplay = document.getElementById('collectedLettersDisplay');
+        // Referências aos elementos da interface
+        const startButton = document.getElementById('startButton');
+        const nextNoteButton = document.getElementById('nextNoteButton');
+        const statusEl = document.getElementById('status');
+        const instructionEl = document.getElementById('instruction');
+        const targetNoteDisplayEl = document.getElementById('targetNoteDisplay');
+        const feedbackEl = document.getElementById('feedback');
+        const userResultLabel = document.getElementById('userResultLabel');
+        const userResultDisplay = document.getElementById('userResultDisplay');
+        const displayArea = document.getElementById('displayArea');
 
-        // Game state variables
-        let playerCar;
-        const otherCars = [];
-        const houses = [];
-        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; // All letters for random cars
-        const carColors = ['#FF6347', '#4682B4', '#3CB371', '#FFD700', '#DA70D6', '#FFA500', '#ADFF2F']; // Various car colors
-        let animationFrameId; // To hold the ID of requestAnimationFrame
-        let isPaused = false; // State variable for pause functionality
+        // Configurações do áudio e da lógica
+        let audioContext;
+        let synth;
+        let analyser;
+        let mic;
+        let currentNote = null;
+        let listening = false;
+        let actionTaken = false; 
+        let errorCount = 0; 
+        const FFT_SIZE = 2048;
 
-        // Word game variables
-        const targetWords = ['CASA', 'PATO', 'BOLA', 'GATO', 'SOL', 'ARROZ', 'FLOR'];
-        let currentWordIndex = 0;
-        let targetWord = '';
-        let collectedLetters = []; // To store letters collected in order
-
-        // Adjust canvas size to fit container and maintain aspect ratio
-        function resizeCanvas() {
-            const container = document.getElementById('gameContainer');
-            const containerWidth = container.clientWidth;
-            const containerHeight = container.clientHeight;
-
-            // Set canvas dimensions (actual pixels)
-            canvas.width = containerWidth - 40; // Subtract margins
-            canvas.height = containerHeight - 40; // Subtract margins
-
-            // Update player car position if necessary on resize
-            if (playerCar) {
-                playerCar.y = canvas.height - playerCar.height - 20; // Near bottom
+        const notes = [
+            { name: 'dó', freq: 130.81 }, { name: 'dó#', freq: 138.59 },
+            { name: 'ré', freq: 146.83 }, { name: 'ré#', freq: 155.56 },
+            { name: 'mi', freq: 164.81 }, { name: 'fá', freq: 174.61 },
+            { name: 'fá#', freq: 185.00 },{ name: 'sol', freq: 196.00 },
+            { name: 'láb', freq: 207.65 },{ name: 'lá', freq: 220.00 },
+            { name: 'sib', freq: 233.08 },{ name: 'si', freq: 246.94 },
+        ];
+        
+        const startApp = async () => {
+            try {
+                statusEl.textContent = 'Iniciando áudio...';
+                await Tone.start();
+                audioContext = Tone.context.rawContext;
+                synth = new Tone.Synth().toDestination();
+                analyser = new Tone.Analyser('waveform', FFT_SIZE);
+                mic = new Tone.UserMedia();
+                await mic.open();
+                mic.connect(analyser);
+                statusEl.textContent = 'Microfone pronto!';
+                startButton.classList.add('hidden');
+                nextNoteButton.classList.remove('hidden');
+                instructionEl.textContent = 'Pressione "Próxima Nota"';
+                getPitchLoop(); 
+            } catch (error) {
+                console.error("Falha ao iniciar o aplicativo:", error);
+                statusEl.textContent = "Erro ao acessar o microfone.";
             }
-        }
-
-        window.addEventListener('resize', resizeCanvas);
-        window.onload = function() {
-            resizeCanvas(); // Initial resize
-            initGame();
+        };
+        
+        const startNewRound = () => {
+            let newNote;
+            do {
+                newNote = notes[Math.floor(Math.random() * notes.length)];
+            } while (newNote && currentNote && newNote.name === currentNote.name);
+            currentNote = newNote;
+            errorCount = 0;
+            playAndSetupListener(currentNote);
+        };
+        
+        const repeatRound = () => {
+            playAndSetupListener(currentNote);
         };
 
-        /**
-         * Shows a message in a central box on the screen.
-         * @param {string} message - The message to display.
-         * @param {number} duration - How long the message should be displayed in milliseconds.
-         */
-        function showMessage(message, duration = 2000) {
-            messageBox.textContent = message;
-            messageBox.style.display = 'block';
+        const playAndSetupListener = (noteToPlay) => {
+            listening = false;
+            actionTaken = true; 
+            feedbackEl.innerHTML = '&nbsp;'; 
+            userResultLabel.innerHTML = '&nbsp;';
+            userResultDisplay.textContent = '-';
+            displayArea.className = 'mt-6 p-6 bg-gray-900/50 rounded-xl color-transition';
+            instructionEl.textContent = 'Ouça com atenção...';
+            targetNoteDisplayEl.textContent = noteToPlay.name;
+            synth.triggerAttackRelease(noteToPlay.freq, '1s');
+            
+            // MUDANÇA: Aumento do tempo de espera para evitar que o som do app seja captado.
+            // O valor foi aumentado de 1500ms para 2000ms.
             setTimeout(() => {
-                messageBox.style.display = 'none';
-            }, duration);
+                instructionEl.textContent = 'AGORA CANTE A NOTA';
+                listening = true;
+                actionTaken = false;
+            }, 2000);
+        };
+
+        function autoCorrelate(buffer, sampleRate) {
+            const SIZE = buffer.length;
+            let rms = 0;
+            for (let i = 0; i < SIZE; i++) rms += buffer[i] * buffer[i];
+            rms = Math.sqrt(rms / SIZE);
+            if (rms < 0.01) return -1;
+
+            let r1 = 0, r2 = SIZE - 1;
+            for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buffer[i]) < 0.2) { r1 = i; break; }
+            for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buffer[SIZE - i]) < 0.2) { r2 = SIZE - i; break; }
+            
+            const buffer2 = buffer.slice(r1, r2);
+            const c = new Float32Array(buffer2.length).fill(0);
+            for (let i = 0; i < buffer2.length; i++) for (let j = 0; j < buffer2.length - i; j++) c[i] += buffer2[j] * buffer2[j + i];
+
+            let d = 0;
+            while (d < c.length && d + 1 < c.length && c[d] > c[d + 1]) d++;
+            let maxval = -1, maxpos = -1;
+            for (let i = d; i < buffer2.length; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+            
+            if (maxpos === -1 || maxpos === 0 || maxpos >= c.length -1) return -1;
+            
+            let T0 = maxpos;
+            const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+            const a = (x1 + x3 - 2 * x2) / 2, b = (x3 - x1) / 2;
+            if (a) T0 -= b / (2 * a);
+
+            return T0 > 0 ? sampleRate / T0 : -1;
         }
 
-        /**
-         * Represents a car in the game.
-         * @param {number} x - The x-coordinate of the car.
-         * @param {number} y - The y-coordinate of the car.
-         * @param {string} letter - The letter displayed on the car.
-         * @param {string} color - The color of the car.
-         * @param {number} speed - The speed of the car.
-         */
-        class Car {
-            constructor(x, y, letter, color, speed) {
-                this.width = 40;
-                this.height = 70;
-                this.x = x;
-                this.y = y;
-                this.letter = letter;
-                this.color = color;
-                this.speed = speed;
-                this.lane = Math.floor(Math.random() * 3); // 0, 1, or 2 for lanes
-            }
+        function getPitchLoop() {
+            requestAnimationFrame(getPitchLoop);
+            if (!listening || !analyser || actionTaken) return;
 
-            /**
-             * Draws the car on the canvas.
-             */
-            draw() {
-                // Draw car body
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
-
-                // Draw wheels (small black rectangles)
-                ctx.fillStyle = '#333'; // Dark grey for wheels
-                ctx.fillRect(this.x - 5, this.y + 10, 5, 15); // Left front wheel
-                ctx.fillRect(this.x - 5, this.y + this.height - 25, 5, 15); // Left rear wheel
-                ctx.fillRect(this.x + this.width, this.y + 10, 5, 15); // Right front wheel
-                ctx.fillRect(this.x + this.width, this.y + this.height - 25, 5, 15); // Right rear wheel
-
-                // Draw car roof/top
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x + 5, this.y + 10, this.width - 10, this.height - 20);
-
-                // Draw the letter
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 30px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.letter, this.x + this.width / 2, this.y + this.height / 2);
-            }
-
-            /**
-             * Updates the car's position.
-             */
-            update() {
-                this.y += this.speed;
-            }
-        }
-
-        /**
-         * Represents a house in the game.
-         * @param {number} x - The x-coordinate of the house.
-         * @param {number} y - The y-coordinate of the house.
-         * @param {string} color - The color of the house.
-         */
-        class House {
-            constructor(x, y, color) {
-                this.width = 60;
-                this.height = 80;
-                this.x = x;
-                this.y = y;
-                this.color = color;
-            }
-
-            /**
-             * Draws the house on the canvas.
-             */
-            draw() {
-                // Draw main body of the house
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
-
-                // Draw roof (triangle)
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y);
-                ctx.lineTo(this.x + this.width / 2, this.y - this.height / 2); // Peak of the roof
-                ctx.lineTo(this.x + this.width, this.y);
-                ctx.closePath();
-                ctx.fillStyle = '#8B4513'; // Brown for roof
-                ctx.fill();
-
-                // Draw door
-                ctx.fillStyle = '#654321'; // Darker brown for door
-                ctx.fillRect(this.x + this.width / 2 - 10, this.y + this.height - 30, 20, 30);
-            }
-        }
-
-        /**
-         * Initializes the game by setting up player car, other cars, and houses.
-         */
-        function initGame() {
-            // Player car (always 'P' for Player)
-            playerCar = new Car(canvas.width / 2 - 20, canvas.height - 80, 'P', '#FF0000', 0); // Red player car
-
-            // Generate initial houses
-            const houseColors = ['#f4a261', '#e9c46a', '#2a9d8f', '#264653'];
-            // Left side houses
-            for (let i = 0; i < 5; i++) {
-                houses.push(new House(20, i * 150 + 50, houseColors[Math.floor(Math.random() * houseColors.length)]));
-            }
-            // Right side houses
-            for (let i = 0; i < 5; i++) {
-                houses.push(new House(canvas.width - 80, i * 150 + 50, houseColors[Math.floor(Math.random() * houseColors.length)]));
-            }
-
-            startNewWord(); // Start with a new word
-            gameLoop(); // Start the game loop
-        }
-
-        /**
-         * Starts a new word for the player to form.
-         */
-        function startNewWord() {
-            // Pick the next target word, loop if necessary
-            targetWord = targetWords[currentWordIndex % targetWords.length];
-            currentWordIndex++;
-
-            // Initialize collected letters with underscores
-            collectedLetters = Array(targetWord.length).fill('_');
-
-            // Clear existing other cars to prevent confusion with previous words
-            otherCars.length = 0;
-
-            displayWordProgress();
-            showMessage(`Forme a palavra: ${targetWord}`);
-        }
-
-        /**
-         * Updates the display of the target word and collected letters.
-         */
-        function displayWordProgress() {
-            targetWordDisplay.textContent = `Palavra Alvo: ${targetWord}`;
-            collectedLettersDisplay.textContent = `Letras Coletadas: ${collectedLetters.join(' ')}`;
-        }
-
-        /**
-         * Checks if the player has successfully formed the target word.
-         */
-        function checkWinCondition() {
-            if (collectedLetters.join('') === targetWord) {
-                showMessage(`Parabéns! Você formou a palavra ${targetWord}!`, 3000);
-                // Optionally, automatically start a new word after a delay or make user click "New Word"
-                // setTimeout(startNewWord, 3000);
-            }
-        }
-
-        /**
-         * Draws the road on the canvas.
-         */
-        function drawRoad() {
-            ctx.fillStyle = '#505050'; // Dark grey for road
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw road lines
-            ctx.fillStyle = 'white'; // White lines
-            const laneWidth = canvas.width / 3; // Divide into 3 lanes
-            for (let i = 0; i < canvas.height; i += 40) { // Dashed lines
-                ctx.fillRect(laneWidth - 5, i, 10, 20); // First lane marker
-                ctx.fillRect(2 * laneWidth - 5, i, 10, 20); // Second lane marker
-            }
-        }
-
-        /**
-         * Updates the game state (car positions, etc.).
-         */
-        function update() {
-            // Update other cars' positions
-            otherCars.forEach(car => {
-                car.update();
-                // If car goes off screen, remove it
-                if (car.y > canvas.height) {
-                    otherCars.splice(otherCars.indexOf(car), 1);
-                }
-            });
-
-            // Add new cars randomly
-            // Prioritize letters from the target word if not all collected
-            let letterToGenerate;
-            const nextExpectedLetter = targetWord[collectedLetters.indexOf('_')]; // Find the next letter we need
-
-            if (nextExpectedLetter && Math.random() < 0.1) { // Higher chance for needed letter
-                letterToGenerate = nextExpectedLetter;
+            const waveformData = analyser.getValue();
+            const frequency = autoCorrelate(waveformData, audioContext.sampleRate);
+            
+            if (frequency !== -1) {
+                 checkPitch(frequency);
             } else {
-                letterToGenerate = alphabet[Math.floor(Math.random() * alphabet.length)];
+                 userResultDisplay.textContent = '-';
+                 userResultLabel.innerHTML = '&nbsp;';
             }
+        }
+        
+        function checkPitch(userFreq) {
+            if (!currentNote || userFreq <= 0) return;
 
+            let normalizedUserFreq = userFreq;
+            while (normalizedUserFreq > currentNote.freq * 1.414) normalizedUserFreq /= 2;
+            while (normalizedUserFreq < currentNote.freq / 1.414) normalizedUserFreq *= 2;
 
-            if (Math.random() < 0.02 && otherCars.length < 5) { // Adjust probability and max cars
-                const randomColor = carColors[Math.floor(Math.random() * carColors.length)];
-                const randomLane = Math.floor(Math.random() * 3);
-                const laneCenter = (randomLane + 0.5) * (canvas.width / 3);
-                otherCars.push(new Car(laneCenter - 20, -70, letterToGenerate, randomColor, Math.random() * 2 + 1)); // Random speed
-            }
+            const centsDiff = 1200 * Math.log2(normalizedUserFreq / currentNote.freq);
+            const absCentsDiff = Math.abs(centsDiff);
+            
+            if (absCentsDiff <= 75) {
+                if (actionTaken) return;
+                actionTaken = true;
+                feedbackEl.textContent = 'A nota tocada foi entonada suficientemente bem';
+                userResultLabel.innerHTML = '&nbsp;';
+                userResultDisplay.textContent = '✓';
+                displayArea.className = 'mt-6 p-6 bg-green-500/80 rounded-xl color-transition';
+                setTimeout(startNewRound, 2000);
+                return;
+            } 
 
-            // Simple collision detection with player car (horizontal boundaries)
-            if (playerCar.x < 0) playerCar.x = 0;
-            if (playerCar.x + playerCar.width > canvas.width) playerCar.x = canvas.width - playerCar.width;
+            userResultLabel.textContent = 'Resultado';
+            userResultDisplay.textContent = 'Ficou fora';
 
-            // Check for collisions between player car and other cars
-            for (let i = otherCars.length - 1; i >= 0; i--) {
-                const otherCar = otherCars[i];
-                if (
-                    playerCar.x < otherCar.x + otherCar.width &&
-                    playerCar.x + playerCar.width > otherCar.x &&
-                    playerCar.y < otherCar.y + otherCar.height &&
-                    playerCar.y + playerCar.height > otherCar.y
-                ) {
-                    // Collision detected!
-                    // Check if the collected letter is the next one needed for the target word
-                    const nextEmptyIndex = collectedLetters.indexOf('_');
-                    if (nextEmptyIndex !== -1 && otherCar.letter === targetWord[nextEmptyIndex]) {
-                        collectedLetters[nextEmptyIndex] = otherCar.letter;
-                        showMessage(`Você coletou a letra ${otherCar.letter}!`, 1500);
-                        displayWordProgress();
-                        checkWinCondition();
-                    } else {
-                        showMessage(`Você encontrou a letra ${otherCar.letter}! Tente encontrar a próxima letra da palavra!`, 1500);
-                    }
-                    otherCars.splice(i, 1); // Remove the collided car
+            if (absCentsDiff > 150) {
+                if (actionTaken) return;
+                actionTaken = true;
+                errorCount++;
+                if (errorCount >= 2) {
+                    feedbackEl.textContent = 'Vamos tentar outra...';
+                    displayArea.className = 'mt-6 p-6 bg-purple-600/80 rounded-xl color-transition';
+                    setTimeout(startNewRound, 1500);
+                } else {
+                    feedbackEl.textContent = 'Tente de novo...';
+                    displayArea.className = 'mt-6 p-6 bg-red-500/80 rounded-xl color-transition';
+                    setTimeout(repeatRound, 1500);
                 }
+                return;
             }
+
+            feedbackEl.textContent = `Quase Lá`;
+            displayArea.className = 'mt-6 p-6 bg-yellow-400/80 rounded-xl color-transition';
         }
 
-        /**
-         * Renders all game elements on the canvas.
-         */
-        function draw() {
-            // Clear the canvas for a new frame
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        startButton.addEventListener('click', startApp);
+        nextNoteButton.addEventListener('click', startNewRound);
 
-            // Draw road first
-            drawRoad();
-
-            // Draw houses
-            houses.forEach(house => house.draw());
-
-            // Draw other cars
-            otherCars.forEach(car => car.draw());
-
-            // Draw player car
-            playerCar.draw();
-        }
-
-        /**
-         * The main game loop. Updates game state and redraws elements.
-         */
-        function gameLoop() {
-            if (!isPaused) { // Only update and draw if not paused
-                update(); // Update game state
-                draw();   // Redraw all elements
-            }
-            animationFrameId = requestAnimationFrame(gameLoop); // Request next frame regardless of pause state
-        }
-
-        // Toggle pause state when button is clicked
-        pauseButton.addEventListener('click', () => {
-            isPaused = !isPaused;
-            if (isPaused) {
-                pauseButton.textContent = 'Continuar';
-                showMessage('Jogo Pausado!');
-            } else {
-                pauseButton.textContent = 'Pausar';
-                showMessage('Jogo Continuado!');
-            }
-        });
-
-        // Start new word when button is clicked
-        newWordButton.addEventListener('click', () => {
-            startNewWord();
-        });
-
-        // Keyboard input handling
-        document.addEventListener('keydown', (e) => {
-            if (!isPaused) { // Only allow movement if not paused
-                const moveSpeed = 10; // How many pixels the car moves per key press
-                if (e.key === 'ArrowLeft') {
-                    playerCar.x -= moveSpeed;
-                } else if (e.key === 'ArrowRight') {
-                    playerCar.x += moveSpeed;
-                } else if (e.key === 'ArrowUp') {
-                    playerCar.y -= moveSpeed;
-                } else if (e.key === 'ArrowDown') {
-                    playerCar.y += moveSpeed;
-                }
-            }
-        });
     </script>
 </body>
 </html>
+```
+
+A única alteração foi aumentar o tempo de espera antes de o aplicativo começar a analisar a sua voz, de 1.5 para 2 segundos. Isso deve dar tempo suficiente para que o som de referência termine completamente, evitando a sobreposição no celular. Espero que agora a experiência fique perfei
